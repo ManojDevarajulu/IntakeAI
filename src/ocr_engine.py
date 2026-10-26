@@ -62,7 +62,17 @@ class OCRExtractionEngine:
                 simulate_noise=simulate_ocr_noise,
             )
 
-        # Try native hardware-accelerated OCR first on uploaded / scanned documents
+        # 1. Try Multimodal Vision LLM if configured in .env (Gemini / OpenAI / Ollama)
+        try:
+            from src.llm_extractor import extract_referral_with_llm
+
+            llm_result = extract_referral_with_llm(img, source_file)
+            if llm_result is not None:
+                return llm_result
+        except Exception:
+            pass
+
+        # 2. Try native hardware-accelerated OCR on uploaded / scanned documents
         try:
             from src.native_ocr import parse_referral_from_ocr, run_native_ocr
 
@@ -72,7 +82,7 @@ class OCRExtractionEngine:
         except Exception:
             pass
 
-        # Standalone heuristic OCR parser fallback
+        # 3. Standalone heuristic OCR parser fallback
         return self._heuristic_extract(img, source_file)
 
     def _extract_with_known_layout(

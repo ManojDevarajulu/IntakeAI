@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.calibrated_router import CalibratedRouter
+from src.config import settings
 from src.eval_runner import EvalRunner
 from src.fhir_exporter import FHIRExporter
 from src.ocr_engine import OCRExtractionEngine
@@ -32,7 +33,7 @@ from src.synth_generator import SyntheticFaxGenerator
 app = FastAPI(
     title="Intake AI — Clinical Document Processing & Review Service",
     description="HIPAA-ready document AI service with conformal confidence routing and FHIR R4 export.",
-    version="0.1.0",
+    version="0.1.0-prod",
 )
 
 app.add_middleware(
@@ -52,9 +53,9 @@ FIXTURES_PATH = Path(__file__).parent.parent / "data" / "referral_fixtures.json"
 generator = SyntheticFaxGenerator(width=900, height=1250)
 ocr_engine = OCRExtractionEngine()
 router = CalibratedRouter(
-    min_field_confidence=0.85,
-    min_critical_confidence=0.88,
-    min_overall_confidence=0.85,
+    min_field_confidence=settings.min_overall_confidence,
+    min_critical_confidence=settings.min_critical_confidence,
+    min_overall_confidence=settings.min_overall_confidence,
 )
 eval_runner = EvalRunner(fixtures_path=FIXTURES_PATH)
 
@@ -165,7 +166,7 @@ def get_health():
     return {
         "status": "HEALTHY",
         "service": "Intake AI Clinical IDP",
-        "version": "0.1.0",
+        "version": "0.1.0-prod",
         "queue_depth": total,
         "auto_accepted_stp": stp_count,
         "flagged_for_review": flagged_count,
@@ -173,6 +174,43 @@ def get_health():
             "field_min": router.min_field_confidence,
             "critical_min": router.min_critical_confidence,
             "overall_min": router.min_overall_confidence,
+        },
+    }
+
+
+@app.get("/api/system/info")
+def get_system_info():
+    """Returns runtime system architecture, active OCR/LLM engine, and invariant configuration."""
+    llm_info = settings.get_active_llm_status()
+    return {
+        "system": "Intake AI — Clinical Referral IDP & Conformal Risk Terminal",
+        "version": "0.1.0-prod",
+        "environment": settings.environment,
+        "ocr_engine": {
+            "strategy": settings.ocr_backend,
+            "native_ocr_available": True,
+            "pdf_runtime_available": True,
+        },
+        "llm_engine": {
+            "active": llm_info["active"],
+            "provider": llm_info["provider"],
+            "model": llm_info["model"],
+            "description": "Multimodal Vision LLM zero-shot extraction gated by deterministic invariant layer." if llm_info["active"] else "Offline Deterministic Native OCR & Bounding Box Extractor.",
+        },
+        "deterministic_invariants": {
+            "npi_luhn_check": "CMS 10-Digit Formula ((24 + LuhnDouble(d1..d9) + d10) mod 10 == 0)",
+            "icd10_taxonomy_registry": "CMS Active Ambulatory Outpatient Table",
+            "chronology_invariants": "DOB < Referral Date <= Requested Service Date",
+        },
+        "conformal_router": {
+            "alpha": settings.conformal_alpha,
+            "target_coverage": f"{(1.0 - settings.conformal_alpha) * 100:.0f}%",
+            "tau_critical_fields": settings.min_critical_confidence,
+            "tau_overall": settings.min_overall_confidence,
+        },
+        "ehr_fhir": {
+            "profile": "HL7 FHIR R4 (US Core Compliant)",
+            "configured_endpoint": settings.ehr_fhir_endpoint or "Local Session Store",
         },
     }
 

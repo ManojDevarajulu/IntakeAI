@@ -151,6 +151,19 @@ def test_api_field_edit():
     print("[PASS] test_api_field_edit")
 
 
+def test_api_system_info():
+    res = client.get("/api/system/info")
+    assert res.status_code == 200
+    info = res.json()
+    assert "system" in info
+    assert "ocr_engine" in info
+    assert "llm_engine" in info
+    assert "deterministic_invariants" in info
+    assert "conformal_router" in info
+    assert "ehr_fhir" in info
+    print("[PASS] test_api_system_info")
+
+
 def test_api_static_index():
     res = client.get("/")
     assert res.status_code == 200
@@ -167,5 +180,6 @@ if __name__ == "__main__":
     test_api_benchmark_endpoint()
     test_api_samples_and_upload()
     test_api_field_edit()
+    test_api_system_info()
     test_api_static_index()
     print("\nALL WEB SERVICE & API TESTS PASSED (100%)!")

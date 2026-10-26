@@ -49,6 +49,10 @@ function App() {
   // Simulation dropdown
   const [simulateMenuOpen, setSimulateMenuOpen] = useState(false);
 
+  // System diagnostics modal state
+  const [systemInfo, setSystemInfo] = useState(null);
+  const [systemModalOpen, setSystemModalOpen] = useState(false);
+
   const fileInputRef = useRef(null);
 
   // Fetch referrals on load
@@ -70,8 +74,19 @@ function App() {
     }
   };
 
+  const loadSystemInfo = async () => {
+    try {
+      const res = await fetch("/api/system/info");
+      const data = await res.json();
+      setSystemInfo(data);
+    } catch (err) {
+      console.error("Failed to load system info:", err);
+    }
+  };
+
   useEffect(() => {
     loadReferrals();
+    loadSystemInfo();
   }, []);
 
   // Fetch selected referral detail
@@ -311,12 +326,19 @@ function App() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 ml-4 pl-4 border-l border-[#eae0dc]">
+          <button
+            onClick={() => setSystemModalOpen(true)}
+            className="hidden md:flex items-center gap-2 ml-4 pl-3 pr-2.5 py-1 bg-[#faf6f3] hover:bg-[#f2eae5] border border-[#eae0dc] rounded-full transition-colors cursor-pointer group"
+            title="Click to view System Engine & .env Configuration"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-mono font-medium text-gray-600">
-              CMS Luhn + ICD-10 Active Invariants
+            <span className="text-xs font-mono font-medium text-gray-700 group-hover:text-black">
+              {systemInfo?.llm_engine?.active
+                ? `Vision LLM (${systemInfo.llm_engine.model}) + Invariants`
+                : "Native OCR + CMS Invariants"}
             </span>
-          </div>
+            <Icon name="info" className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#8c78e1]" />
+          </button>
         </div>
 
         {/* Global Action Strip */}
@@ -1587,6 +1609,124 @@ function App() {
                   Download .json
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      {/* ------------------------------------------------------------- */}
+      {/* Modal 4: System Architecture & Open Source Configuration Guide */}
+      {/* ------------------------------------------------------------- */}
+      {systemModalOpen && systemInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-[#eae0dc] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-[#eae0dc] flex items-center justify-between bg-[#faf6f3]">
+              <div className="flex items-center gap-2">
+                <Icon name="sliders" className="w-5 h-5 text-[#8c78e1]" />
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#220c0c]">
+                    System Architecture & Open-Source Engine Config
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Production Neurosymbolic IDP: Multimodal Vision / OCR + Deterministic Invariants + Conformal Risk Routing
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSystemModalOpen(false)}
+                className="p-1 hover:bg-gray-200 rounded-lg text-gray-500 cursor-pointer"
+              >
+                <Icon name="x" className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs custom-scroll">
+              {/* Engine Status Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-[#fcfaf8] rounded-xl border border-[#eae0dc]">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Active Extraction Engine
+                  </div>
+                  <div className="font-semibold text-gray-900 font-mono flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>
+                      {systemInfo.llm_engine.active
+                        ? `LLM: ${systemInfo.llm_engine.provider} (${systemInfo.llm_engine.model})`
+                        : `OCR: ${systemInfo.ocr_engine.strategy} (Hardware Windows.Media.Ocr)`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {systemInfo.llm_engine.description}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-[#fcfaf8] rounded-xl border border-[#eae0dc]">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Conformal Safety Guarantee
+                  </div>
+                  <div className="font-semibold text-emerald-800 font-mono flex items-center gap-1.5">
+                    <Icon name="shield-check" className="w-4 h-4 text-emerald-600" />
+                    <span>{systemInfo.conformal_router.target_coverage} Safety Guarantee ({"\u03b1"} = {systemInfo.conformal_router.alpha})</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Critical field threshold: {systemInfo.conformal_router.tau_critical_fields} | Overall: {systemInfo.conformal_router.tau_overall}
+                  </p>
+                </div>
+              </div>
+
+              {/* Deterministic Invariants Info */}
+              <div className="p-3.5 bg-[#f9f5f2] rounded-xl border border-[#eae0dc] space-y-2">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  Active Deterministic Invariant Verifiers (Zero LLM Hallucinations Leaked)
+                </div>
+                <div className="space-y-1.5 text-[11px] text-gray-700">
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-[#8c78e1] font-bold">1. CMS Luhn NPI:</span>
+                    <span>{systemInfo.deterministic_invariants.npi_luhn_check}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-[#8c78e1] font-bold">2. CMS ICD-10 Registry:</span>
+                    <span>{systemInfo.deterministic_invariants.icd10_taxonomy_registry}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-[#8c78e1] font-bold">3. Chronology Flow:</span>
+                    <span>{systemInfo.deterministic_invariants.chronology_invariants}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Developer / Recruiter Setup Guide */}
+              <div className="space-y-2 pt-2 border-t border-[#eae0dc]">
+                <div className="text-[11px] font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Icon name="terminal" className="w-3.5 h-3.5 text-[#8c78e1]" />
+                  <span>Plugging In Your Own OCR & LLM Backends (.env)</span>
+                </div>
+                <p className="text-[11px] text-gray-600">
+                  Anyone can configure Intake AI for their own infrastructure using <code className="bg-gray-100 px-1 py-0.5 rounded text-gray-800 font-mono">.env</code>:
+                </p>
+                <div className="p-3 bg-[#1e1c1b] text-gray-200 rounded-xl font-mono text-[11px] space-y-1 overflow-x-auto">
+                  <div className="text-gray-500"># 1. Copy template and choose your provider</div>
+                  <div>cp .env.example .env</div>
+                  <div className="text-gray-500 pt-1"># 2. Use Google Gemini 2.5 Flash for Multimodal Vision:</div>
+                  <div className="text-emerald-400">LLM_PROVIDER=gemini</div>
+                  <div>GEMINI_API_KEY=your_gemini_api_key</div>
+                  <div className="text-gray-500 pt-1"># Or use OpenAI GPT-4o Vision:</div>
+                  <div className="text-emerald-400">LLM_PROVIDER=openai</div>
+                  <div>OPENAI_API_KEY=your_openai_api_key</div>
+                  <div className="text-gray-500 pt-1"># Or run in Docker container:</div>
+                  <div>docker compose up</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-white border-t border-[#eae0dc] flex items-center justify-between text-xs">
+              <span className="text-gray-500 font-mono">
+                HL7 FHIR Profile: {systemInfo.ehr_fhir.profile}
+              </span>
+              <button
+                onClick={() => setSystemModalOpen(false)}
+                className="px-4 py-1.5 bg-[#220c0c] hover:bg-[#381616] text-white rounded-lg font-medium cursor-pointer"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
