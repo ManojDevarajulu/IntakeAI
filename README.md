@@ -13,6 +13,10 @@ Intake AI is an open-source, production-grade Intelligent Document Processing (I
 
 Unlike brittle regex scrapers or probabilistic "black-box" LLM wrappers that hallucinate clinical identifiers, Intake AI implements a **Neurosymbolic IDP Architecture**: pluggable Multimodal Vision LLMs / OCR extract layout and text, which is immediately bounded by **closed-form deterministic mathematical verifiers** (CMS 10-Digit NPI Luhn formula, CMS ICD-10-CM Taxonomy Registry, and Chronological Invariants) and routed via a **Conformal Risk Router** to guarantee zero corrupted records enter downstream Electronic Health Records (EHRs).
 
+<p align="center">
+  <img src="docs/intake_terminal_preview.png" alt="Intake AI Clinician Review Workstation & Split-Pane Bounding Box Visualizer" width="100%" />
+</p>
+
 ---
 
 ## Key Highlights
