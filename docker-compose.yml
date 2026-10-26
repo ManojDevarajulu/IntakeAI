@@ -1,0 +1,22 @@
+services:
+  intake-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: intake-ai-terminal
+    ports:
+      - "8001:8001"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8001
+      - ENVIRONMENT=production
+      - OCR_BACKEND=tesseract
+      # Optional: pass through your API keys if set in your host shell or .env
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-none}
+    volumes:
+      - ./data:/app/data
+      - ./sample_documents:/app/sample_documents
+    restart: unless-stopped
