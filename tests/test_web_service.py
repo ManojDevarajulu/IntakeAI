@@ -101,6 +101,56 @@ def test_api_benchmark_endpoint():
     print("[PASS] test_api_benchmark_endpoint")
 
 
+def test_api_samples_and_upload():
+    # 1. List samples
+    res = client.get("/api/intake/samples")
+    assert res.status_code == 200
+    samples = res.json()["samples"]
+    assert len(samples) >= 6
+    filenames = [s["filename"] for s in samples]
+    assert "01_clean_cardiology_referral.png" in filenames
+    assert "06_clinical_referral.pdf" in filenames
+
+    # 2. Ingest sample clean cardiology
+    res_clean = client.post("/api/intake/load_sample", json={"filename": "01_clean_cardiology_referral.png"})
+    assert res_clean.status_code == 200
+    assert res_clean.json()["status"] == "SUCCESS"
+
+    # 3. Ingest PDF document
+    res_pdf = client.post("/api/intake/load_sample", json={"filename": "06_clinical_referral.pdf"})
+    assert res_pdf.status_code == 200
+    assert res_pdf.json()["status"] == "SUCCESS"
+    assert res_pdf.json()["decision"] == "AUTO_ACCEPTED"
+
+    # 4. Ingest NPI error document
+    res_err = client.post("/api/intake/load_sample", json={"filename": "02_npi_luhn_error_referral.png"})
+    assert res_err.status_code == 200
+    assert res_err.json()["decision"] == "FLAGGED_FOR_REVIEW"
+
+    print("[PASS] test_api_samples_and_upload")
+
+
+def test_api_field_edit():
+    # Load NPI error referral
+    res_err = client.post("/api/intake/load_sample", json={"filename": "02_npi_luhn_error_referral.png"})
+    ref_id = res_err.json()["referral_id"]
+    assert res_err.json()["decision"] == "FLAGGED_FOR_REVIEW"
+
+    # Edit NPI to valid check-digit 1497758544
+    res_edit = client.put(f"/api/referrals/{ref_id}/field", json={
+        "field_key": "referring_provider.npi",
+        "new_value": "1497758544",
+    })
+    assert res_edit.status_code == 200
+    edit_data = res_edit.json()
+    assert edit_data["status"] == "SUCCESS"
+    assert edit_data["updated_field"] == "referring_provider.npi"
+    assert edit_data["decision"] == "AUTO_ACCEPTED"
+    assert len(edit_data["flags"]) == 0
+
+    print("[PASS] test_api_field_edit")
+
+
 def test_api_static_index():
     res = client.get("/")
     assert res.status_code == 200
@@ -115,5 +165,7 @@ if __name__ == "__main__":
     test_api_approve()
     test_api_fhir_export()
     test_api_benchmark_endpoint()
+    test_api_samples_and_upload()
+    test_api_field_edit()
     test_api_static_index()
     print("\nALL WEB SERVICE & API TESTS PASSED (100%)!")

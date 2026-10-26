@@ -248,6 +248,252 @@ def get_referral_detail(referral_id: str):
     }
 
 
+class UploadDocumentRequest(BaseModel):
+    filename: str = Field("referral_fax.png", description="Document filename")
+    content_base64: str = Field(..., description="Base64-encoded image bytes")
+
+
+class GenerateSyntheticRequest(BaseModel):
+    scenario: str = Field(
+        "clean",
+        description="'clean', 'tampered_npi', 'invalid_icd10', 'future_dob', or 'heavy_noise'"
+    )
+
+
+class UpdateFieldRequest(BaseModel):
+    field_key: str = Field(..., description="Entity key (e.g. 'referring_provider.npi', 'diagnosis.icd10_code')")
+    new_value: str = Field(..., description="Corrected value entered by reviewing clinician")
+
+
+@app.post("/api/intake/upload")
+def upload_referral_document(req: UploadDocumentRequest):
+    """Processes an uploaded referral facsimile image through OCR extraction and conformal risk routing."""
+    import base64
+    from PIL import Image
+
+    try:
+        clean_b64 = req.content_base64
+        if "," in clean_b64:
+            clean_b64 = clean_b64.split(",", 1)[1]
+        raw_bytes = base64.b64decode(clean_b64)
+
+        if req.filename.lower().endswith(".pdf") or raw_bytes.startswith(b"%PDF"):
+            from src.native_ocr import render_pdf_to_image
+            img = render_pdf_to_image(raw_bytes)
+            if img is None:
+                raise HTTPException(status_code=400, detail="Could not render uploaded PDF file.")
+        else:
+            img = Image.open(io.BytesIO(raw_bytes))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to decode document payload: {e}")
+
+    # Extract entities and layout
+    extracted = ocr_engine.extract_from_referral(img, degradation_severity=0.1)
+    extracted.source_file = req.filename
+    routed, audit = router.evaluate_and_route(extracted)
+
+    # Save to cache
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+
+    REFERRAL_CACHE[routed.referral_id] = {
+        "model": routed,
+        "audit": audit,
+        "image_bytes": png_bytes,
+        "original_record": {},
+        "clinician_approved": routed.routing_decision == "AUTO_ACCEPTED",
+        "clinician_notes": None,
+    }
+
+    return {
+        "status": "SUCCESS",
+        "referral_id": routed.referral_id,
+        "decision": routed.routing_decision,
+        "confidence": routed.overall_confidence,
+        "flags": routed.validation_flags,
+    }
+
+
+@app.post("/api/intake/generate")
+def generate_sample_referral(req: GenerateSyntheticRequest):
+    """Dynamically generates a new synthetic referral fax with specific edge-case simulation."""
+    import random
+    from datetime import date, timedelta
+
+    fixtures = []
+    if FIXTURES_PATH.exists():
+        with open(FIXTURES_PATH, "r", encoding="utf-8") as f:
+            fixtures = json.load(f)
+
+    base_rec = dict(fixtures[random.randint(0, len(fixtures) - 1)]) if fixtures else {}
+    rand_suffix = random.randint(1000, 9999)
+    base_rec["referral_id"] = f"REF-2026-{rand_suffix}"
+
+    severity = 0.2
+    simulate_noise = False
+
+    if req.scenario == "tampered_npi":
+        base_rec["referral_id"] = f"REF-NPI-ERR-{rand_suffix}"
+        orig_npi = base_rec["referring_provider"]["npi"]
+        base_rec["referring_provider"] = dict(base_rec["referring_provider"])
+        # Off-by-one check digit
+        base_rec["referring_provider"]["npi"] = orig_npi[:-1] + str((int(orig_npi[-1]) + 1) % 10)
+    elif req.scenario == "invalid_icd10":
+        base_rec["referral_id"] = f"REF-ICD-ERR-{rand_suffix}"
+        base_rec["diagnosis"] = dict(base_rec["diagnosis"])
+        base_rec["diagnosis"]["icd10_code"] = "Z99.999"  # Not in CMS active outpatient table
+    elif req.scenario == "future_dob":
+        base_rec["referral_id"] = f"REF-TIME-ERR-{rand_suffix}"
+        base_rec["patient"] = dict(base_rec["patient"])
+        base_rec["patient"]["dob"] = "2029-05-10"  # Born in the future
+    elif req.scenario == "heavy_noise":
+        base_rec["referral_id"] = f"REF-NOISE-ERR-{rand_suffix}"
+        severity = 0.88
+        simulate_noise = True
+
+    img, gt_model = generator.render_referral(base_rec)
+    degraded = generator.apply_fax_degradation(img, seed=rand_suffix, severity=severity)
+    extracted = ocr_engine.extract_from_referral(
+        degraded, ground_truth=gt_model, degradation_severity=severity, simulate_ocr_noise=simulate_noise
+    )
+    routed, audit = router.evaluate_and_route(extracted)
+
+    buf = io.BytesIO()
+    degraded.save(buf, format="PNG")
+    REFERRAL_CACHE[routed.referral_id] = {
+        "model": routed,
+        "audit": audit,
+        "image_bytes": buf.getvalue(),
+        "original_record": base_rec,
+        "clinician_approved": routed.routing_decision == "AUTO_ACCEPTED",
+        "clinician_notes": None,
+    }
+
+    return {
+        "status": "SUCCESS",
+        "referral_id": routed.referral_id,
+        "scenario": req.scenario,
+        "decision": routed.routing_decision,
+        "confidence": routed.overall_confidence,
+        "flags": routed.validation_flags,
+    }
+
+
+@app.get("/api/intake/samples")
+def list_sample_documents():
+    """Lists available pre-rendered test referral documents for quick testing."""
+    sample_dir = Path(__file__).parent.parent / "sample_documents"
+    samples = []
+    if sample_dir.exists():
+        for p in sorted(sample_dir.glob("*.*")):
+            if p.suffix.lower() in (".png", ".pdf", ".jpg"):
+                samples.append({
+                    "filename": p.name,
+                    "title": p.stem.replace("_", " ").title(),
+                    "size_bytes": p.stat().st_size,
+                    "type": "PDF" if p.suffix.lower() == ".pdf" else "Image",
+                })
+    return {"samples": samples}
+
+
+class LoadSampleRequest(BaseModel):
+    filename: str = Field(..., description="Sample filename from sample_documents/")
+
+
+@app.post("/api/intake/load_sample")
+def load_sample_document(req: LoadSampleRequest):
+    """Loads and processes one of the pre-rendered sample documents."""
+    sample_dir = Path(__file__).parent.parent / "sample_documents"
+    file_path = sample_dir / req.filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Sample file not found")
+
+    raw_bytes = file_path.read_bytes()
+    if req.filename.lower().endswith(".pdf"):
+        from src.native_ocr import render_pdf_to_image
+
+        img = render_pdf_to_image(raw_bytes)
+        if img is None:
+            raise HTTPException(status_code=400, detail="Could not render PDF")
+    else:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(raw_bytes))
+
+    extracted = ocr_engine.extract_from_referral(img)
+    extracted.source_file = req.filename
+    routed, audit = router.evaluate_and_route(extracted)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    REFERRAL_CACHE[routed.referral_id] = {
+        "model": routed,
+        "audit": audit,
+        "image_bytes": buf.getvalue(),
+        "original_record": {},
+        "clinician_approved": routed.routing_decision == "AUTO_ACCEPTED",
+        "clinician_notes": None,
+    }
+    return {
+        "status": "SUCCESS",
+        "referral_id": routed.referral_id,
+        "decision": routed.routing_decision,
+        "confidence": routed.overall_confidence,
+        "flags": routed.validation_flags,
+    }
+
+
+@app.put("/api/referrals/{referral_id}/field")
+def update_referral_field(referral_id: str, req: UpdateFieldRequest):
+    """Allows reviewing clinician to edit field values and immediately re-evaluates invariants."""
+    if referral_id not in REFERRAL_CACHE:
+        raise HTTPException(status_code=404, detail=f"Referral '{referral_id}' not found.")
+
+    item = REFERRAL_CACHE[referral_id]
+    m: ReferralV1 = item["model"]
+
+    # Update field
+    if req.field_key == "referring_provider.npi":
+        m.referring_provider.npi = req.new_value.strip()
+    elif req.field_key == "diagnosis.icd10_code":
+        if m.diagnoses:
+            m.diagnoses[0].code = req.new_value.strip().upper()
+    elif req.field_key == "patient.first_name":
+        m.patient.first_name = req.new_value.strip()
+    elif req.field_key == "patient.last_name":
+        m.patient.last_name = req.new_value.strip()
+    elif req.field_key == "patient.dob":
+        m.patient.dob = req.new_value.strip()
+    elif req.field_key == "insurance.member_id":
+        if m.insurance:
+            m.insurance.member_id = req.new_value.strip()
+
+    # Update field entity metadata
+    if req.field_key in m.field_entities:
+        ent = m.field_entities[req.field_key]
+        ent.value = req.new_value
+        ent.status = "OVERRIDDEN"
+
+    # Re-evaluate invariants & routing
+    routed, audit = router.evaluate_and_route(m)
+    item["model"] = routed
+    item["audit"] = audit
+
+    return {
+        "status": "SUCCESS",
+        "referral_id": referral_id,
+        "updated_field": req.field_key,
+        "new_value": req.new_value,
+        "decision": routed.routing_decision,
+        "flags": routed.validation_flags,
+        "audit": audit,
+    }
+
+
+
 @app.get("/api/referrals/{referral_id}/image")
 def get_referral_image(referral_id: str):
     """Streams the rendered facsimile PNG image."""
