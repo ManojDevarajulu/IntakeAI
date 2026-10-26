@@ -1,0 +1,138 @@
+[
+  {
+    "referral_id": "REF-2026-0819",
+    "referral_date": "2026-04-15",
+    "urgency": "urgent",
+    "patient": {
+      "first_name": "Eleanor",
+      "last_name": "Vance",
+      "dob": "1964-07-22",
+      "gender": "female",
+      "phone": "555-234-8910",
+      "address": "742 Evergreen Terrace, Springfield, OR 97477"
+    },
+    "insurance": {
+      "payer_name": "Pacific Source Health",
+      "member_id": "PSH882910394",
+      "group_number": "GRP-9012"
+    },
+    "referring_provider": {
+      "provider_name": "Dr. Marcus Brody, MD",
+      "npi": "1234567893",
+      "clinic_name": "Springfield Primary Care Associates",
+      "phone": "555-019-2834",
+      "fax": "555-019-2835"
+    },
+    "diagnosis": {
+      "icd10_code": "I10",
+      "description": "Essential (primary) hypertension with persistent refractory systolic elevation",
+      "clinical_notes": "61yo female presenting with stage 2 hypertension refractory to lisinopril 20mg. Requesting comprehensive cardiovascular evaluation and 24h ambulatory BP monitoring."
+    },
+    "service_requested": {
+      "service_type": "Cardiology Consultation & Echocardiogram",
+      "requested_date": "2026-04-20"
+    }
+  },
+  {
+    "referral_id": "REF-2026-0924",
+    "referral_date": "2026-05-10",
+    "urgency": "routine",
+    "patient": {
+      "first_name": "James",
+      "last_name": "Delaney",
+      "dob": "1978-11-04",
+      "gender": "male",
+      "phone": "555-891-4432",
+      "address": "1204 Oak Hollow Ln, Austin, TX 78704"
+    },
+    "insurance": {
+      "payer_name": "Blue Cross Blue Shield of Texas",
+      "member_id": "BCB77461902",
+      "group_number": "TX-40019"
+    },
+    "referring_provider": {
+      "provider_name": "Dr. Sarah Lin, MD",
+      "npi": "1427054345",
+      "clinic_name": "Austin Family Medicine",
+      "phone": "555-432-1100",
+      "fax": "555-432-1101"
+    },
+    "diagnosis": {
+      "icd10_code": "E11.9",
+      "description": "Type 2 diabetes mellitus without complications",
+      "clinical_notes": "Patient diagnosed with T2DM. HbA1c trending upward to 8.4% despite metformin titration. Referral for endocrinology consultation and medical nutrition therapy."
+    },
+    "service_requested": {
+      "service_type": "Endocrinology Outpatient Consultation",
+      "requested_date": "2026-05-25"
+    }
+  },
+  {
+    "referral_id": "REF-2026-1102",
+    "referral_date": "2026-06-02",
+    "urgency": "stat",
+    "patient": {
+      "first_name": "Arthur",
+      "last_name": "Pendleton",
+      "dob": "1952-03-18",
+      "gender": "male",
+      "phone": "555-776-9214",
+      "address": "408 Elm Street, Boston, MA 02115"
+    },
+    "insurance": {
+      "payer_name": "Medicare Part B (Massachusetts)",
+      "member_id": "MED109283746",
+      "group_number": "MED-US-01"
+    },
+    "referring_provider": {
+      "provider_name": "Dr. Rachel Sterling, MD",
+      "npi": "1518963289",
+      "clinic_name": "Beacon Hill Internal Medicine",
+      "phone": "555-321-7890",
+      "fax": "555-321-7899"
+    },
+    "diagnosis": {
+      "icd10_code": "M54.5",
+      "description": "Low back pain with progressive radiculopathy",
+      "clinical_notes": "74yo male with 3-week progressive lumbosacral pain radiating down left L5 distribution with motor weakness. Stat MRI lumbar spine and orthopedic spine consult requested."
+    },
+    "service_requested": {
+      "service_type": "Orthopedic Spine Consultation & Lumbar MRI",
+      "requested_date": "2026-06-04"
+    }
+  },
+  {
+    "referral_id": "REF-2026-1240",
+    "referral_date": "2026-07-14",
+    "urgency": "routine",
+    "patient": {
+      "first_name": "Claire",
+      "last_name": "Montague",
+      "dob": "1989-09-30",
+      "gender": "female",
+      "phone": "555-667-1290",
+      "address": "332 Pine Ridge Rd, Denver, CO 80202"
+    },
+    "insurance": {
+      "payer_name": "UnitedHealthcare Commercial",
+      "member_id": "UHC90382715",
+      "group_number": "CO-88192"
+    },
+    "referring_provider": {
+      "provider_name": "Dr. Carlos Ramos, MD",
+      "npi": "1679549323",
+      "clinic_name": "Mile High Health Center",
+      "phone": "555-908-1122",
+      "fax": "555-908-1123"
+    },
+    "diagnosis": {
+      "icd10_code": "J45.909",
+      "description": "Unspecified asthma, uncomplicated with frequent seasonal exacerbations",
+      "clinical_notes": "36yo female with poorly controlled persistent asthma. Daytime symptoms 4x/week, nighttime awakenings. SABA reliance high. Referral to Pulmonology for biologic assessment."
+    },
+    "service_requested": {
+      "service_type": "Pulmonary Medicine & Spirometry",
+      "requested_date": "2026-08-01"
+    }
+  }
+]

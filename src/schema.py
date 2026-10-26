@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from typing import Dict, Any, Optional, List, Generic, TypeVar
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 T = TypeVar("T")
 
@@ -32,11 +32,17 @@ class BoundingBox(BaseModel):
 class ClinicalEntity(BaseModel, Generic[T]):
     """Extracted clinical field with pixel coordinates and confidence scoring."""
     value: T
-    raw_text: str = Field(..., description="Exact raw text span extracted from OCR")
+    raw_text: str = Field(default="", description="Exact raw text span extracted from OCR")
     bbox: Optional[BoundingBox] = None
     confidence: float = Field(1.0, ge=0.0, le=1.0, description="Conformal calibration score")
     status: str = Field("PENDING", description="'AUTO_ACCEPTED', 'FLAGGED_FOR_REVIEW', or 'OVERRIDDEN'")
     validation_note: Optional[str] = None
+
+    @model_validator(mode="after")
+    def ensure_raw_text(self):
+        if not self.raw_text and self.value is not None:
+            self.raw_text = str(self.value)
+        return self
 
 class PatientDemographics(BaseModel):
     """Patient demographics conforming to US Core Patient profile."""
@@ -119,3 +125,16 @@ class ReferralV1(BaseModel):
         default_factory=list,
         description="List of failing checks (e.g. 'INVALID_NPI', 'CHRONOLOGY_MISMATCH')"
     )
+
+    def get_entity(self, key: str) -> Optional[ClinicalEntity[Any]]:
+        """Retrieve bounding box, raw text, and confidence for a field."""
+        return self.field_entities.get(key)
+
+    @property
+    def primary_diagnosis(self) -> Optional[ClinicalDiagnosis]:
+        """Convenience accessor for primary diagnosis."""
+        for d in self.diagnoses:
+            if d.is_primary:
+                return d
+        return self.diagnoses[0] if self.diagnoses else None
+
