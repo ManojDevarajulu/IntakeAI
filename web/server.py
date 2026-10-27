@@ -514,6 +514,7 @@ def update_referral_field(referral_id: str, req: UpdateFieldRequest):
         ent = m.field_entities[req.field_key]
         ent.value = req.new_value
         ent.status = "OVERRIDDEN"
+        ent.confidence = 1.0
 
     # Re-evaluate invariants & routing
     routed, audit = router.evaluate_and_route(m)
